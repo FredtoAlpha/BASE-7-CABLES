@@ -532,22 +532,39 @@ function canSwap(id1, id2) {
   // Mode admin : tout est permis
   if (STATE.adminMode) return { ok: true };
   
-  // ✅ PRIORITÉ 1 : DISSO - Vérifier AVANT les mobilités
-  // Logique : Deux élèves D1 dans des classes différentes PEUVENT swapper
-  // Car après le swap, ils seront toujours dans des classes différentes
-  // Cette règle PRIME sur les règles de mobilité (PERMUT, CONDI, etc.)
+  // ✅ PRIORITÉ 1 : SWAP DE MÊME CONTRAINTE
+  // Si les deux élèves ont les mêmes contraintes (LV2, OPT, code D), le swap est autorisé
+  // Car cela ne change pas les quotas : on échange juste deux élèves identiques
+  
+  const lv2_1 = (eleve1.lv2 || '').toUpperCase();
+  const lv2_2 = (eleve2.lv2 || '').toUpperCase();
+  const opt_1 = (eleve1.opt || '').toUpperCase();
+  const opt_2 = (eleve2.opt || '').toUpperCase();
+  
+  // Cas 1 : Même code D (dissociation)
   if (eleve1.disso && eleve2.disso && eleve1.disso === eleve2.disso) {
-    // Même code D : swap autorisé (ils échangent de place, restent séparés)
+    console.log(`✅ Swap autorisé: ${eleve1.nom} ↔ ${eleve2.nom} (même code D${eleve1.disso})`);
     return { ok: true };
   }
   
-  // FIXE et SPEC : jamais déplaçables
+  // Cas 2 : Même LV2 ET même OPT (ou pas d'OPT)
+  const memeLV2 = lv2_1 === lv2_2 || (lv2_1 === 'ESP' && lv2_2 === 'ESP') || (!lv2_1 && !lv2_2);
+  const memeOPT = opt_1 === opt_2 || (!opt_1 && !opt_2);
+  
+  if (memeLV2 && memeOPT) {
+    console.log(`✅ Swap autorisé: ${eleve1.nom} ↔ ${eleve2.nom} (mêmes contraintes: LV2=${lv2_1 || 'aucune'}, OPT=${opt_1 || 'aucune'})`);
+    return { ok: true };
+  }
+  
+  // Si pas de mêmes contraintes, vérifier les mobilités
+  
+  // FIXE et SPEC : jamais déplaçables en mode Swap (seulement en mode Force)
   if (eleve1.mobilite === 'FIXE' || eleve2.mobilite === 'FIXE') {
-    return { ok: false, reason: 'FIXE ne peut pas bouger' };
+    return { ok: false, reason: 'FIXE ne peut pas bouger (utilisez le mode Force)' };
   }
   
   if (eleve1.mobilite === 'SPEC' || eleve2.mobilite === 'SPEC') {
-    return { ok: false, reason: 'SPEC ne peut pas bouger' };
+    return { ok: false, reason: 'SPEC ne peut pas bouger (utilisez le mode Force)' };
   }
   
   // CONDI : jamais déplaçables (conditionnés par le groupe)
@@ -602,22 +619,47 @@ function canSwap(id1, id2) {
     }
   }
   
-  // Vérifier les quotas basiques
+  // Vérifier les quotas LV2 et OPT
   const dr1 = STATE.rules[classe2] || {};
   const dr2 = STATE.rules[classe1] || {};
   
+  // Vérifier LV2 de eleve1 dans classe2
   if (eleve1.lv2 && eleve1.lv2.toUpperCase() !== 'ESP') {
-    if (!dr1.quotas || dr1.quotas[eleve1.lv2.toUpperCase()] === 0) {
-      return { ok: false, reason: `${eleve1.lv2} interdit dans ${classe2}` };
+    const lv2Upper = eleve1.lv2.toUpperCase();
+    if (!dr1.quotas || dr1.quotas[lv2Upper] === 0) {
+      console.log(`❌ Swap refusé: ${eleve1.nom} (${lv2Upper}) interdit dans ${classe2}`);
+      return { ok: false, reason: `${lv2Upper} interdit dans ${classe2}` };
     }
   }
   
+  // Vérifier LV2 de eleve2 dans classe1
   if (eleve2.lv2 && eleve2.lv2.toUpperCase() !== 'ESP') {
-    if (!dr2.quotas || dr2.quotas[eleve2.lv2.toUpperCase()] === 0) {
-      return { ok: false, reason: `${eleve2.lv2} interdit dans ${classe1}` };
+    const lv2Upper = eleve2.lv2.toUpperCase();
+    if (!dr2.quotas || dr2.quotas[lv2Upper] === 0) {
+      console.log(`❌ Swap refusé: ${eleve2.nom} (${lv2Upper}) interdit dans ${classe1}`);
+      return { ok: false, reason: `${lv2Upper} interdit dans ${classe1}` };
     }
   }
   
+  // Vérifier OPT de eleve1 dans classe2
+  if (eleve1.opt && eleve1.opt.trim()) {
+    const optUpper = eleve1.opt.toUpperCase();
+    if (!dr1.quotas || dr1.quotas[optUpper] === 0) {
+      console.log(`❌ Swap refusé: ${eleve1.nom} (OPT ${optUpper}) interdit dans ${classe2}`);
+      return { ok: false, reason: `Option ${optUpper} interdite dans ${classe2}` };
+    }
+  }
+  
+  // Vérifier OPT de eleve2 dans classe1
+  if (eleve2.opt && eleve2.opt.trim()) {
+    const optUpper = eleve2.opt.toUpperCase();
+    if (!dr2.quotas || dr2.quotas[optUpper] === 0) {
+      console.log(`❌ Swap refusé: ${eleve2.nom} (OPT ${optUpper}) interdit dans ${classe1}`);
+      return { ok: false, reason: `Option ${optUpper} interdite dans ${classe1}` };
+    }
+  }
+  
+  console.log(`✅ Swap autorisé: ${eleve1.nom} ↔ ${eleve2.nom} (quotas respectés)`);
   return { ok: true };
 }
 
@@ -1066,6 +1108,13 @@ function createStudentCard(eleve) {
   card.addEventListener('dragend', handleDragEnd);
   card.addEventListener('click', handleCardClick);
   
+  // 🔒 Indication visuelle pour les élèves FIXE/SPEC/CONDI/PERMUT (le blocage est géré par le filtre Sortable)
+  if (!STATE.adminMode && eleve.mobilite && ['FIXE', 'SPEC', 'CONDI', 'PERMUT'].includes(eleve.mobilite)) {
+    card.classList.add('non-draggable');
+    card.style.opacity = '0.85';
+    card.title = `${eleve.nom} est ${eleve.mobilite} - Utilisez le mode Swap ou le mode Force pour le déplacer`;
+  }
+  
   return card;
 }
 
@@ -1140,6 +1189,30 @@ function createClassColumn(classe, eleves) {
     animation: 150,
     ghostClass: 'opacity-50',
     dragClass: 'dragging',
+    // 🔒 Filtre pour bloquer le drag des élèves FIXE/SPEC/CONDI/PERMUT (sauf en mode admin)
+    filter: function(evt, target) {
+      if (!target || !target.dataset) {
+        console.warn('⚠️ Filtre Sortable: target invalide', target);
+        return true; // Bloquer par sécurité
+      }
+      
+      // 🔥 VÉRIFICATION MODE FORCE
+      console.log('🔍 Filtre Sortable - STATE.adminMode =', STATE?.adminMode);
+      if (STATE.adminMode) {
+        console.log('🔥 MODE FORCE ACTIF - Drag autorisé sans vérification');
+        return false; // En mode admin, tout est draggable
+      }
+      
+      const eleveId = target.dataset.id;
+      if (!eleveId) return false; // Pas d'ID, autoriser (ne devrait pas arriver)
+      const eleve = STATE.students[eleveId];
+      if (eleve && eleve.mobilite && ['FIXE', 'SPEC', 'CONDI', 'PERMUT'].includes(eleve.mobilite)) {
+        console.log(`🔒 Drag bloqué pour ${eleve.nom} (${eleve.mobilite}) - MODE FORCE INACTIF`);
+        toast(`${eleve.nom} est ${eleve.mobilite} - Utilisez le mode Swap ou le mode Force`, 'warning');
+        return true; // Bloquer le drag
+      }
+      return false; // Autoriser le drag
+    },
     onEnd: handleSortEnd,
     onStart: (evt) => {
       console.log('🖱️ Drag started:', evt.item.dataset.id);
@@ -1258,17 +1331,23 @@ window.handleSortEnd = function(evt) {
     return;
   }
 
-  const check = canMove(eleveId, oldClasse, newClasse);
+  // 🔥 MODE FORCE : Tout est autorisé sans vérification
+  if (STATE.adminMode) {
+    console.log('🔥 MODE FORCE: Déplacement autorisé sans vérification');
+  } else {
+    // Mode normal : vérifier les contraintes
+    const check = canMove(eleveId, oldClasse, newClasse);
 
-  if (!check.ok && !STATE.adminMode) {
-    evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex] || null);
-    toast(check.reason, 'error');
-    updateAllColumnStats(); // ← CET APPEL MANQUE PEUT-ÊTRE
-    return;
-  }
+    if (!check.ok) {
+      evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex] || null);
+      toast(check.reason, 'error');
+      updateAllColumnStats();
+      return;
+    }
 
-  if (check.warn && !STATE.adminMode) {
-    toast(check.warn, 'warning');
+    if (check.warn) {
+      toast(check.warn, 'warning');
+    }
   }
 
   // Historique
@@ -1558,8 +1637,8 @@ async function restoreCache() {
 // =======================================================
 let autoSaveInterval = null;
 
-// DÉPLACER STATE ICI !
-let STATE = {
+// DÉPLACER STATE ICI ! ET L'EXPOSER SUR WINDOW
+window.STATE = {
     viewMode: 'complete',
     students: {},
     rules: {},
@@ -1583,6 +1662,9 @@ let STATE = {
     draggingElement: null,
     dragStartZone: null
 };
+
+// Alias pour compatibilité avec le code existant
+const STATE = window.STATE;
 
 // Variables pour les graphiques (les déplacer aussi)
 window.chartCommunication = null;
@@ -2883,19 +2965,29 @@ window.addEventListener('DOMContentLoaded', (event) => {
     
     if (btnUndoMenu) {
       btnUndoMenu.addEventListener('click', () => {
+        console.log('🔄 Bouton Annuler cliqué, history.length=', STATE.history?.length);
         if (window.undo) {
           window.undo();
+        } else if (App && App.History && App.History.undo) {
+          App.History.undo();
         } else {
           toast('⚠️ Fonction Annuler non disponible', 'warning');
         }
       });
       
-      // Synchroniser l'état disabled avec l'ancien bouton
+      // Synchroniser l'état disabled avec l'ancien bouton OU directement avec STATE
       if (btnUndo) {
         const observer = new MutationObserver(() => {
           btnUndoMenu.disabled = btnUndo.disabled;
         });
         observer.observe(btnUndo, { attributes: true, attributeFilter: ['disabled'] });
+      } else {
+        // Mise à jour directe si l'ancien bouton n'existe pas
+        setInterval(() => {
+          if (STATE && STATE.history) {
+            btnUndoMenu.disabled = STATE.history.length === 0;
+          }
+        }, 500);
       }
     }
     
@@ -2905,19 +2997,29 @@ window.addEventListener('DOMContentLoaded', (event) => {
     
     if (btnRedoMenu) {
       btnRedoMenu.addEventListener('click', () => {
+        console.log('🔄 Bouton Rétablir cliqué, future.length=', STATE.future?.length);
         if (window.redo) {
           window.redo();
+        } else if (App && App.History && App.History.redo) {
+          App.History.redo();
         } else {
           toast('⚠️ Fonction Rétablir non disponible', 'warning');
         }
       });
       
-      // Synchroniser l'état disabled avec l'ancien bouton
+      // Synchroniser l'état disabled avec l'ancien bouton OU directement avec STATE
       if (btnRedo) {
         const observer = new MutationObserver(() => {
           btnRedoMenu.disabled = btnRedo.disabled;
         });
         observer.observe(btnRedo, { attributes: true, attributeFilter: ['disabled'] });
+      } else {
+        // Mise à jour directe si l'ancien bouton n'existe pas
+        setInterval(() => {
+          if (STATE && STATE.future) {
+            btnRedoMenu.disabled = STATE.future.length === 0;
+          }
+        }, 500);
       }
     }
     
@@ -3097,16 +3199,16 @@ window.addEventListener('DOMContentLoaded', (event) => {
     let   btnLock   = q('#btnLockAdmin'); // peut ne pas exister
     const status    = document.getElementById('adminStatusIndicator'); // optionnel
 
-    // 3) État initial (TOUJOURS verrouillé par défaut, sauf si mode Force actif)
-    // IMPORTANT: On ignore localStorage.adminUnlocked au démarrage pour forcer le verrouillage
-    const forceMode = localStorage.getItem('adminForceMode') === 'true';
-    let   isAdminUnlocked = forceMode; // Seulement si mode Force, sinon TOUJOURS verrouillé
+    // 3) État initial (TOUJOURS verrouillé par défaut)
+    // IMPORTANT: On ignore localStorage.adminUnlocked ET adminForceMode au démarrage pour forcer le verrouillage
+    // L'admin doit déverrouiller manuellement à chaque session (sécurité)
+    let isAdminUnlocked = false; // TOUJOURS verrouillé au démarrage
     
-    // Nettoyer localStorage.adminUnlocked au démarrage (sécurité)
-    if (!forceMode) {
-      localStorage.removeItem('adminUnlocked');
-      console.log('🔒 localStorage.adminUnlocked nettoyé au démarrage (sécurité)');
-    }
+    // Nettoyer localStorage au démarrage (sécurité maximale)
+    localStorage.removeItem('adminUnlocked');
+    localStorage.removeItem('adminForceMode');
+    if (window.STATE) window.STATE.adminMode = false;
+    console.log('🔒 localStorage nettoyé au démarrage (sécurité maximale)');
 
     function paintLockedUI() {
       lockMsg && lockMsg.classList.remove('hidden');
@@ -3344,21 +3446,43 @@ window.addEventListener('DOMContentLoaded', (event) => {
     // 9) Mode Force Admin (toggle)
     const toggleForce = q('#toggleAdminForceMode');
     if (toggleForce) {
-      const savedForce = localStorage.getItem('adminForceMode') === 'true';
-      if (savedForce) {
-        toggleForce.checked = true;
-        if (window.STATE) window.STATE.adminMode = true;
-      }
+      // TOUJOURS désactivé au démarrage (sécurité)
+      toggleForce.checked = false;
+      if (window.STATE) window.STATE.adminMode = false;
+      console.log('🔒 Mode Force désactivé au démarrage (sécurité)');
+      
       toggleForce.addEventListener('change', () => {
         const isOn = toggleForce.checked;
-        if (window.STATE) window.STATE.adminMode = isOn;
+        console.log('🔄 Toggle Mode Force changé:', isOn);
+        console.log('   window.STATE existe?', !!window.STATE);
+        console.log('   STATE existe?', typeof STATE !== 'undefined');
+        
+        if (window.STATE) {
+          window.STATE.adminMode = isOn;
+          console.log('   ✅ window.STATE.adminMode =', window.STATE.adminMode);
+        } else {
+          console.error('   ❌ window.STATE n\'existe pas!');
+        }
+        
         localStorage.setItem('adminForceMode', isOn);
+        
         if (isOn) {
           window.toast && toast('⚠️ Mode Force activé - Toutes les contraintes sont ignorées', 'warning');
           console.log('🔓 Mode Admin Force: ON - Déplacements libres (FIXE, PERMUT, CONDI ignorés)');
+          console.log('   STATE.adminMode =', STATE?.adminMode);
         } else {
           window.toast && toast('✅ Mode Force désactivé - Contraintes respectées', 'success');
           console.log('🔒 Mode Admin Force: OFF - Contraintes actives');
+          console.log('   STATE.adminMode =', STATE?.adminMode);
+        }
+        
+        // 🔄 Rafraîchir l'affichage pour mettre à jour les attributs draggable des cartes
+        console.log('🔄 Rafraîchissement de l\'affichage pour le mode Force...');
+        if (typeof renderColumns === 'function') {
+          renderColumns();
+          console.log('   ✅ renderColumns() appelé');
+        } else {
+          console.error('   ❌ renderColumns n\'existe pas!');
         }
       });
     }
@@ -5860,8 +5984,24 @@ function setDarkMode(on) {
   toggleDarkMode();
 }
 
-// 2. Tutoriel interactif
+// 2. Tutoriel interactif AMÉLIORÉ
 function showTutorial() {
+  console.log('🎓 showTutorial() appelé');
+  console.log('   window.OnboardingTour existe ?', typeof window.OnboardingTour !== 'undefined');
+  console.log('   window.OnboardingTour =', window.OnboardingTour);
+  console.log('   window.OnboardingTour.start existe ?', typeof window.OnboardingTour?.start);
+  
+  // ========== ROUTING VERS ONBOARDING TOUR (SHEPHERD.JS) ==========
+  // Priorité au tutoriel avancé si disponible
+  if (typeof window.OnboardingTour !== 'undefined' && typeof window.OnboardingTour.start === 'function') {
+    console.log('✅ Lancement du tutoriel avancé (Shepherd.js)');
+    window.OnboardingTour.start();
+    return;
+  }
+  
+  // ========== FALLBACK LEGACY AMÉLIORÉ ==========
+  console.log('⚠️ OnboardingTour non disponible, lancement du tutoriel fallback (legacy)');
+  
   const steps = [
     { element: '#search', title: 'Recherche', text: 'Utilisez cette barre pour trouver rapidement un élève par son nom.' },
     { element: '#btnFilters', title: 'Filtres', text: 'Filtrez les élèves par type (PERMUT, FIXE, LV2, etc.)' },
@@ -5869,38 +6009,210 @@ function showTutorial() {
     { element: '#btnSwap', title: 'Mode Swap', text: 'Utilisez ce mode pour échanger facilement deux élèves.' },
     { element: '#btnStats', title: 'Statistiques', text: 'Consultez les graphiques et analyses détaillées.' }
   ];
+  
   let currentStep = 0;
+  let overlayElement = null;
+  let bubbleContainer = null;
+  let highlightedElement = null;
+  
+  // Fonction pour nettoyer complètement le tutoriel
+  function cleanupTutorial() {
+    // Supprimer l'overlay
+    if (overlayElement) {
+      overlayElement.remove();
+      overlayElement = null;
+    }
+    
+    // Supprimer le conteneur de bulle
+    if (bubbleContainer) {
+      bubbleContainer.remove();
+      bubbleContainer = null;
+    }
+    
+    // Restaurer l'élément mis en avant
+    if (highlightedElement) {
+      highlightedElement.style.position = '';
+      highlightedElement.style.zIndex = '';
+      highlightedElement.style.boxShadow = '';
+      highlightedElement.style.borderRadius = '';
+      highlightedElement = null;
+    }
+    
+    // Nettoyer les alias globaux
+    delete window.nextTutorialStep;
+    delete window.hideTutorial;
+    
+    // Retirer les listeners clavier
+    document.removeEventListener('keydown', handleTutorialKeyboard);
+  }
+  
+  // Gestion du clavier (Échap pour quitter)
+  function handleTutorialKeyboard(e) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      cleanupTutorial();
+      toast('Tutoriel interrompu', 'info');
+    }
+  }
+  
+  // Fonction pour afficher une étape
   function showStep(index) {
-    if (index >= steps.length) { hideTutorial(); toast('Tutoriel terminé ! Vous êtes prêt à utiliser l\'application.', 'success'); return; }
+    // Vérifier la fin du tutoriel
+    if (index >= steps.length) {
+      cleanupTutorial();
+      // Marquer comme vu SEULEMENT à la fin
+      localStorage.setItem('hasSeenTutorial', 'true');
+      toast('Tutoriel terminé ! Vous êtes prêt à utiliser l\'application.', 'success');
+      return;
+    }
+    
     const step = steps[index];
     const element = document.querySelector(step.element);
-    if (!element) { currentStep++; showStep(currentStep); return; }
-    const overlay = document.createElement('div');
-    overlay.id = 'tutorialOverlay';
-    overlay.className = 'fixed inset-0 bg-black bg-opacity-70 z-50';
-    const bubble = document.createElement('div');
-    bubble.className = 'absolute bg-white rounded-lg p-4 shadow-xl max-w-sm z-60';
-    bubble.innerHTML = `<h3 class="font-bold text-lg mb-2">${step.title}</h3><p class="mb-4">${step.text}</p><div class="flex justify-between items-center"><span class="text-sm text-gray-500">${index + 1}/${steps.length}</span><div class="space-x-2"><button onclick="hideTutorial()" class="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300">Passer</button><button onclick="nextTutorialStep()" class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600">${index === steps.length - 1 ? 'Terminer' : 'Suivant'}</button></div></div>`;
-    const rect = element.getBoundingClientRect();
-    bubble.style.top = (rect.bottom + 20) + 'px';
-    bubble.style.left = Math.max(20, rect.left - 100) + 'px';
-    element.style.position = 'relative';
-    element.style.zIndex = '55';
-    element.style.boxShadow = '0 0 0 4px #3b82f6, 0 0 0 8px rgba(59, 130, 246, 0.3)';
-    element.style.borderRadius = '8px';
-    overlay.appendChild(bubble);
-    document.body.appendChild(overlay);
+    
+    // Sécuriser la progression si l'élément n'existe pas
+    if (!element) {
+      console.warn(`⚠️ Élément "${step.element}" introuvable, passage à l'étape suivante`);
+      currentStep++;
+      // Vérifier qu'il reste des étapes valides
+      if (currentStep < steps.length) {
+        showStep(currentStep);
+      } else {
+        cleanupTutorial();
+        toast('Tutoriel terminé (certaines étapes ont été sautées)', 'info');
+      }
+      return;
+    }
+    
+    // Nettoyer l'étape précédente
+    if (overlayElement) overlayElement.remove();
+    if (bubbleContainer) bubbleContainer.remove();
+    if (highlightedElement) {
+      highlightedElement.style.position = '';
+      highlightedElement.style.zIndex = '';
+      highlightedElement.style.boxShadow = '';
+      highlightedElement.style.borderRadius = '';
+    }
+    
+    // Scroller l'élément dans la vue
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+    // Attendre que le scroll soit terminé
+    setTimeout(() => {
+      // Créer l'overlay (z-index: 50)
+      overlayElement = document.createElement('div');
+      overlayElement.id = 'tutorialOverlay';
+      overlayElement.className = 'fixed inset-0 bg-black bg-opacity-70';
+      overlayElement.style.zIndex = '50';
+      overlayElement.setAttribute('role', 'dialog');
+      overlayElement.setAttribute('aria-modal', 'true');
+      overlayElement.setAttribute('aria-labelledby', 'tutorialTitle');
+      
+      // Mettre en avant l'élément ciblé (z-index: 60)
+      highlightedElement = element;
+      element.style.position = 'relative';
+      element.style.zIndex = '60';
+      element.style.boxShadow = '0 0 0 4px #3b82f6, 0 0 0 8px rgba(59, 130, 246, 0.3)';
+      element.style.borderRadius = '8px';
+      
+      // Créer un conteneur SÉPARÉ pour la bulle (z-index: 70)
+      bubbleContainer = document.createElement('div');
+      bubbleContainer.className = 'fixed';
+      bubbleContainer.style.zIndex = '70';
+      bubbleContainer.style.pointerEvents = 'none'; // Laisser passer les clics sauf sur la bulle
+      
+      // Créer la bulle pédagogique
+      const bubble = document.createElement('div');
+      bubble.className = 'bg-white rounded-lg p-4 shadow-2xl max-w-sm';
+      bubble.style.pointerEvents = 'auto'; // Réactiver les clics sur la bulle
+      bubble.setAttribute('role', 'alertdialog');
+      bubble.setAttribute('aria-live', 'polite');
+      
+      bubble.innerHTML = `
+        <h3 id="tutorialTitle" class="font-bold text-lg mb-2">${step.title}</h3>
+        <p class="mb-4">${step.text}</p>
+        <div class="flex justify-between items-center">
+          <span class="text-sm text-gray-500">${index + 1}/${steps.length}</span>
+          <div class="space-x-2">
+            <button id="tutorialSkip" class="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300 transition-colors">Passer</button>
+            <button id="tutorialNext" class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">${index === steps.length - 1 ? 'Terminer' : 'Suivant'}</button>
+          </div>
+        </div>
+      `;
+      
+      // Calculer la position de la bulle (positionnement adaptatif)
+      const rect = element.getBoundingClientRect();
+      const bubbleWidth = 384; // max-w-sm = 24rem = 384px
+      const bubbleHeight = 200; // Estimation
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      let top, left;
+      
+      // Gestion du débordement vertical
+      if (rect.bottom + bubbleHeight + 40 > viewportHeight) {
+        // Placer au-dessus si pas assez de place en dessous
+        top = Math.max(20, rect.top - bubbleHeight - 20);
+      } else {
+        // Placer en dessous
+        top = rect.bottom + 20;
+      }
+      
+      // Gestion du débordement horizontal (ancre dynamique)
+      if (rect.left + bubbleWidth + 20 > viewportWidth) {
+        // Ancrer à droite si pas assez de place à gauche
+        left = Math.max(20, viewportWidth - bubbleWidth - 20);
+      } else if (rect.left < 100) {
+        // Si l'élément est très à gauche, décaler la bulle à droite
+        left = Math.max(20, rect.right + 20);
+      } else {
+        // Position par défaut : légèrement à gauche de l'élément
+        left = Math.max(20, rect.left - 100);
+      }
+      
+      bubble.style.position = 'absolute';
+      bubble.style.top = top + 'px';
+      bubble.style.left = left + 'px';
+      
+      bubbleContainer.appendChild(bubble);
+      
+      // Ajouter à la page (ordre important pour le stacking)
+      document.body.appendChild(overlayElement);
+      document.body.appendChild(bubbleContainer);
+      
+      // Attacher les événements aux boutons
+      const skipBtn = document.getElementById('tutorialSkip');
+      const nextBtn = document.getElementById('tutorialNext');
+      
+      skipBtn.addEventListener('click', () => {
+        cleanupTutorial();
+        toast('Tutoriel interrompu', 'info');
+      });
+      
+      nextBtn.addEventListener('click', () => {
+        currentStep++;
+        showStep(currentStep);
+      });
+      
+      // Donner le focus au bouton "Suivant" pour l'accessibilité clavier
+      nextBtn.focus();
+      
+      // Ajouter le listener clavier
+      document.addEventListener('keydown', handleTutorialKeyboard);
+      
+    }, 500); // Attendre la fin du scroll
   }
-  window.nextTutorialStep = function() { currentStep++; hideTutorial(); setTimeout(() => showStep(currentStep), 300); };
-  window.hideTutorial = function() {
-    document.getElementById('tutorialOverlay')?.remove();
-    document.querySelectorAll('[style*="z-index"]').forEach(el => {
-      el.style.position = '';
-      el.style.zIndex = '';
-      el.style.boxShadow = '';
-      el.style.borderRadius = '';
-    });
+  
+  // Créer les alias globaux (seront nettoyés à la fin)
+  window.nextTutorialStep = function() {
+    currentStep++;
+    showStep(currentStep);
   };
+  
+  window.hideTutorial = function() {
+    cleanupTutorial();
+  };
+  
+  // Démarrer le tutoriel
   showStep(0);
 }
 
@@ -5988,10 +6300,7 @@ function createContextualHelp() {
   const helpButton = document.getElementById('btnTutorial');
   if (helpButton) {
     helpButton.addEventListener('click', () => {
-      const hasSeenTutorial = localStorage.getItem('hasSeenTutorial');
-      if (!hasSeenTutorial) {
-        localStorage.setItem('hasSeenTutorial', 'true');
-      }
+      // Ne plus marquer comme vu au clic, seulement à la fin du tutoriel
       showTutorial();
     });
   }
