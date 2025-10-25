@@ -1,0 +1,385 @@
+/**
+ * ONBOARDING TOUR - Tour guidé interactif
+ * Utilise Shepherd.js pour guider les nouveaux utilisateurs
+ */
+
+const OnboardingTour = {
+  tour: null,
+  
+  /**
+   * Crée et démarre le tour
+   */
+  start() {
+    // Vérifier si Shepherd.js est chargé
+    if (typeof Shepherd === 'undefined') {
+      console.error('Shepherd.js non chargé. Inclure: https://cdn.jsdelivr.net/npm/shepherd.js@latest/dist/js/shepherd.min.js');
+      return;
+    }
+    
+    this.tour = new Shepherd.Tour({
+      useModalOverlay: true,
+      defaultStepOptions: {
+        cancelIcon: {
+          enabled: true
+        },
+        classes: 'shepherd-theme-custom',
+        scrollTo: { behavior: 'smooth', block: 'center' }
+      }
+    });
+    
+    // Étape 1: Bienvenue
+    this.tour.addStep({
+      id: 'welcome',
+      title: '👋 Bienvenue !',
+      text: `
+        <p class="mb-3">Bienvenue dans l'outil de répartition des classes.</p>
+        <p>Ce tour guidé vous présentera les fonctionnalités principales.</p>
+      `,
+      buttons: [
+        {
+          text: 'Passer',
+          action: this.tour.cancel,
+          classes: 'shepherd-button-secondary'
+        },
+        {
+          text: 'Suivant',
+          action: this.tour.next
+        }
+      ]
+    });
+    
+    // Étape 2: Configuration
+    this.tour.addStep({
+      id: 'config',
+      title: '⚙️ Configuration',
+      text: `
+        <p>Commencez par configurer la structure de vos classes.</p>
+        <p class="mt-2 text-sm text-gray-600">
+          Définissez le nombre de classes, les capacités et les options disponibles.
+        </p>
+      `,
+      attachTo: {
+        element: '[data-tour="config-btn"]',
+        on: 'bottom'
+      },
+      buttons: [
+        {
+          text: 'Précédent',
+          action: this.tour.back,
+          classes: 'shepherd-button-secondary'
+        },
+        {
+          text: 'Suivant',
+          action: this.tour.next
+        }
+      ]
+    });
+    
+    // Étape 3: Chargement données
+    this.tour.addStep({
+      id: 'load',
+      title: '📂 Chargement des données',
+      text: `
+        <p>Chargez vos élèves depuis:</p>
+        <ul class="list-disc ml-5 mt-2">
+          <li>CONSOLIDATION (nouvelle répartition)</li>
+          <li>Anciennes classes (modification)</li>
+        </ul>
+      `,
+      attachTo: {
+        element: '[data-tour="load-btn"]',
+        on: 'bottom'
+      },
+      buttons: [
+        {
+          text: 'Précédent',
+          action: this.tour.back,
+          classes: 'shepherd-button-secondary'
+        },
+        {
+          text: 'Suivant',
+          action: this.tour.next
+        }
+      ]
+    });
+    
+    // Étape 4: Optimisation automatique
+    this.tour.addStep({
+      id: 'optimize',
+      title: '🚀 Optimisation automatique',
+      text: `
+        <p>Lancez l'optimisation automatique pour répartir les élèves selon:</p>
+        <ul class="list-disc ml-5 mt-2 text-sm">
+          <li>Options et LV2</li>
+          <li>Codes ASSO/DISSO</li>
+          <li>Parité F/M</li>
+          <li>Scores et équilibre</li>
+        </ul>
+      `,
+      attachTo: {
+        element: '[data-tour="optimize-btn"]',
+        on: 'bottom'
+      },
+      buttons: [
+        {
+          text: 'Précédent',
+          action: this.tour.back,
+          classes: 'shepherd-button-secondary'
+        },
+        {
+          text: 'Suivant',
+          action: this.tour.next
+        }
+      ]
+    });
+    
+    // Étape 5: Drag & Drop
+    this.tour.addStep({
+      id: 'dragdrop',
+      title: '🖱️ Ajustements manuels',
+      text: `
+        <p>Après l'optimisation, ajustez manuellement:</p>
+        <ul class="list-disc ml-5 mt-2 text-sm">
+          <li>Glissez-déposez les élèves entre classes</li>
+          <li>Les stats se mettent à jour en temps réel</li>
+          <li>Les warnings s'affichent automatiquement</li>
+        </ul>
+      `,
+      attachTo: {
+        element: '[data-tour="classes-container"]',
+        on: 'top'
+      },
+      buttons: [
+        {
+          text: 'Précédent',
+          action: this.tour.back,
+          classes: 'shepherd-button-secondary'
+        },
+        {
+          text: 'Suivant',
+          action: this.tour.next
+        }
+      ]
+    });
+    
+    // Étape 6: Statistiques
+    this.tour.addStep({
+      id: 'stats',
+      title: '📊 Statistiques en temps réel',
+      text: `
+        <p>Surveillez les statistiques qui se mettent à jour automatiquement:</p>
+        <ul class="list-disc ml-5 mt-2 text-sm">
+          <li>Parité F/M</li>
+          <li>Capacité des classes</li>
+          <li>Distribution LV2/Options</li>
+        </ul>
+      `,
+      attachTo: {
+        element: '[data-tour="stats-panel"]',
+        on: 'left'
+      },
+      buttons: [
+        {
+          text: 'Précédent',
+          action: this.tour.back,
+          classes: 'shepherd-button-secondary'
+        },
+        {
+          text: 'Suivant',
+          action: this.tour.next
+        }
+      ]
+    });
+    
+    // Étape 7: Filtres
+    this.tour.addStep({
+      id: 'filters',
+      title: '🔍 Filtres avancés',
+      text: `
+        <p>Utilisez les filtres pour trouver rapidement des élèves:</p>
+        <ul class="list-disc ml-5 mt-2 text-sm">
+          <li>Multi-critères (sexe, LV2, options, scores)</li>
+          <li>Recherche intelligente</li>
+          <li>Sauvegarde de vues</li>
+        </ul>
+      `,
+      attachTo: {
+        element: '[data-tour="filters-btn"]',
+        on: 'bottom'
+      },
+      buttons: [
+        {
+          text: 'Précédent',
+          action: this.tour.back,
+          classes: 'shepherd-button-secondary'
+        },
+        {
+          text: 'Suivant',
+          action: this.tour.next
+        }
+      ]
+    });
+    
+    // Étape 8: Validation
+    this.tour.addStep({
+      id: 'validation',
+      title: '✅ Validation',
+      text: `
+        <p>Avant de finaliser, vérifiez:</p>
+        <ul class="list-disc ml-5 mt-2 text-sm">
+          <li>Rapport de validation complet</li>
+          <li>Liste exhaustive des erreurs/warnings</li>
+          <li>Statistiques globales</li>
+        </ul>
+      `,
+      attachTo: {
+        element: '[data-tour="validate-btn"]',
+        on: 'bottom'
+      },
+      buttons: [
+        {
+          text: 'Précédent',
+          action: this.tour.back,
+          classes: 'shepherd-button-secondary'
+        },
+        {
+          text: 'Suivant',
+          action: this.tour.next
+        }
+      ]
+    });
+    
+    // Étape 9: Snapshots
+    this.tour.addStep({
+      id: 'snapshots',
+      title: '💾 Historique',
+      text: `
+        <p>Des snapshots sont créés automatiquement avant chaque action critique.</p>
+        <p class="mt-2 text-sm text-gray-600">
+          Vous pouvez revenir à n'importe quelle version précédente.
+        </p>
+      `,
+      attachTo: {
+        element: '[data-tour="history-btn"]',
+        on: 'bottom'
+      },
+      buttons: [
+        {
+          text: 'Précédent',
+          action: this.tour.back,
+          classes: 'shepherd-button-secondary'
+        },
+        {
+          text: 'Suivant',
+          action: this.tour.next
+        }
+      ]
+    });
+    
+    // Étape 10: Finalisation
+    this.tour.addStep({
+      id: 'finalize',
+      title: '🎉 Finalisation',
+      text: `
+        <p>Une fois satisfait de la répartition:</p>
+        <ul class="list-disc ml-5 mt-2 text-sm">
+          <li>Sauvegardez (crée les onglets INT)</li>
+          <li>Exportez en PDF/Excel</li>
+          <li>Consultez les graphiques</li>
+        </ul>
+        <p class="mt-3 font-semibold">Bon travail ! 🚀</p>
+      `,
+      attachTo: {
+        element: '[data-tour="save-btn"]',
+        on: 'bottom'
+      },
+      buttons: [
+        {
+          text: 'Précédent',
+          action: this.tour.back,
+          classes: 'shepherd-button-secondary'
+        },
+        {
+          text: 'Terminer',
+          action: () => {
+            this.tour.complete();
+            this.markAsCompleted();
+          }
+        }
+      ]
+    });
+    
+    // Démarrer le tour
+    this.tour.start();
+  },
+  
+  /**
+   * Marque le tour comme complété
+   */
+  markAsCompleted() {
+    try {
+      localStorage.setItem('onboarding:completed', 'true');
+      localStorage.setItem('onboarding:completedAt', new Date().toISOString());
+    } catch (e) {
+      console.error('Erreur sauvegarde onboarding:', e);
+    }
+    
+    if (typeof Toast !== 'undefined') {
+      Toast.show('Tour guidé terminé ! Vous pouvez le relancer à tout moment.', 'success');
+    }
+  },
+  
+  /**
+   * Vérifie si le tour a été complété
+   */
+  isCompleted() {
+    try {
+      return localStorage.getItem('onboarding:completed') === 'true';
+    } catch (e) {
+      return false;
+    }
+  },
+  
+  /**
+   * Réinitialise le tour
+   */
+  reset() {
+    try {
+      localStorage.removeItem('onboarding:completed');
+      localStorage.removeItem('onboarding:completedAt');
+    } catch (e) {
+      console.error('Erreur reset onboarding:', e);
+    }
+  },
+  
+  /**
+   * Démarre automatiquement si pas encore complété
+   */
+  autoStart() {
+    if (!this.isCompleted()) {
+      // Attendre que la page soit chargée
+      setTimeout(() => {
+        const shouldStart = confirm(
+          'Bienvenue ! Souhaitez-vous suivre un tour guidé de l\'interface ?'
+        );
+        
+        if (shouldStart) {
+          this.start();
+        } else {
+          this.markAsCompleted();
+        }
+      }, 1000);
+    }
+  }
+};
+
+// Exposition globale
+if (typeof window !== 'undefined') {
+  window.OnboardingTour = OnboardingTour;
+}
+
+if (typeof global !== 'undefined') {
+  global.OnboardingTour = OnboardingTour;
+}
+
+console.log('✅ Module OnboardingTour chargé');

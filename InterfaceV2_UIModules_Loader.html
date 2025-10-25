@@ -1,0 +1,45 @@
+<script>
+// ============================================
+// CHARGEMENT DES MODULES UI AVANCÉS
+// ============================================
+console.log('🔄 Chargement des modules UI avancés...');
+
+// Tooltips
+<?!= include('InterfaceV2_modules/ui/Tooltips'); ?>
+
+// Raccourcis clavier
+<?!= include('InterfaceV2_modules/ui/KeyboardShortcuts'); ?>
+
+// Validation Report
+<?!= include('InterfaceV2_modules/ui/ValidationReport'); ?>
+
+// Alertes proactives
+<?!= include('InterfaceV2_modules/ui/ProactiveAlerts'); ?>
+
+// Filtres avancés
+<?!= include('InterfaceV2_modules/ui/AdvancedFilters'); ?>
+
+// Timeline snapshots
+<?!= include('InterfaceV2_modules/ui/SnapshotTimeline'); ?>
+
+// Graphiques avancés
+<?!= include('InterfaceV2_modules/ui/AdvancedCharts'); ?>
+
+// Preview PDF
+<?!= include('InterfaceV2_modules/ui/PDFPreview'); ?>
+
+// Tour guidé
+<?!= include('InterfaceV2_modules/ui/OnboardingTour'); ?>
+
+// État réactif
+<?!= include('InterfaceV2_modules/core/ReactiveState'); ?>
+
+console.log('✅ Tous les modules UI avancés chargés');
+
+// Auto-démarrer le tour guidé si premier lancement
+setTimeout(() => {
+  if (typeof OnboardingTour !== 'undefined') {
+    OnboardingTour.autoStart();
+  }
+}, 2000);
+</script>
