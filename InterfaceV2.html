@@ -695,12 +695,12 @@
   <?!= include('InterfaceV2_Modules_Loader'); ?>
   
   <!-- 2. CHARGER LE SCRIPT PRINCIPAL (qui dépend des modules de base) -->
-  <?!= include('InterfaceV2_CoreScript'); ?>
+  <?!= include('InterfaceV2_UIModules_Loader'); ?>
 
   <?!= include('InterfaceV2_StatsCleanupScript'); ?>
   
   <!-- 3. CHARGER LES MODULES UI AVANCÉS (Tooltips, Raccourcis, Validation, etc.) -->
-  <?!= include('InterfaceV2_UIModules_Loader'); ?>
+  <?!= include('InterfaceV2_CoreScript'); ?>
   
   <!-- 3.5 CHARGER LES RACCOURCIS CLAVIER (T/V/H) -->
   <?!= include('KeyboardShortcuts'); ?>
