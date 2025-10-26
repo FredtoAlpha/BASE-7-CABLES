@@ -3,22 +3,6 @@
 <head>
   <script>console.log("GEMINI_DEBUG: Running latest version of InterfaceV2.html");</script>
   
-  <!-- Bloquer document.write pour éviter injection HTML dans JS lors de OAuth -->
-  <script>
-  (function(){
-    try {
-      var p = new URLSearchParams(location.search);
-      if (p.get('createOAuthDialog') === 'true') {
-        var orig = document.write.bind(document);
-        document.write = function(s){
-          console.warn('Blocked document.write from external script:', String(s).slice(0,60));
-          // ne rien écrire pour éviter le HTML dans le flux JS
-        };
-      }
-    } catch(e){}
-  })();
-  </script>
-  
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Répartition Classes - Version Universelle</title>
