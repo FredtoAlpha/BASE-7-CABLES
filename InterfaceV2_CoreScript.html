@@ -5999,221 +5999,21 @@ function showTutorial() {
     return;
   }
   
-  // ========== FALLBACK LEGACY AMÉLIORÉ ==========
-  console.log('⚠️ OnboardingTour non disponible, lancement du tutoriel fallback (legacy)');
-  
-  const steps = [
-    { element: '#search', title: 'Recherche', text: 'Utilisez cette barre pour trouver rapidement un élève par son nom.' },
-    { element: '#btnFilters', title: 'Filtres', text: 'Filtrez les élèves par type (PERMUT, FIXE, LV2, etc.)' },
-    { element: '.class-column:first-child', title: 'Classes', text: 'Glissez-déposez les élèves entre les classes. Double-clic pour mode focus.' },
-    { element: '#btnSwap', title: 'Mode Swap', text: 'Utilisez ce mode pour échanger facilement deux élèves.' },
-    { element: '#btnStats', title: 'Statistiques', text: 'Consultez les graphiques et analyses détaillées.' }
-  ];
-  
-  let currentStep = 0;
-  let overlayElement = null;
-  let bubbleContainer = null;
-  let highlightedElement = null;
-  
-  // Fonction pour nettoyer complètement le tutoriel
-  function cleanupTutorial() {
-    // Supprimer l'overlay
-    if (overlayElement) {
-      overlayElement.remove();
-      overlayElement = null;
+  // ========== FALLBACK ==========
+  // Si OnboardingTour n'existe pas, attendre un peu et réessayer
+  console.warn('⚠️ OnboardingTour non disponible au moment de l'appel');
+  console.log('Tentative de rechargement dans 1 seconde...');
+
+  setTimeout(() => {
+    if (typeof window.OnboardingTour !== 'undefined' && typeof window.OnboardingTour.start === 'function') {
+      console.log('✅ OnboardingTour est maintenant disponible, lancement');
+      window.OnboardingTour.start();
+    } else {
+      console.error('Impossible de charger OnboardingTour après délai');
     }
-    
-    // Supprimer le conteneur de bulle
-    if (bubbleContainer) {
-      bubbleContainer.remove();
-      bubbleContainer = null;
-    }
-    
-    // Restaurer l'élément mis en avant
-    if (highlightedElement) {
-      highlightedElement.style.position = '';
-      highlightedElement.style.zIndex = '';
-      highlightedElement.style.boxShadow = '';
-      highlightedElement.style.borderRadius = '';
-      highlightedElement = null;
-    }
-    
-    // Nettoyer les alias globaux
-    delete window.nextTutorialStep;
-    delete window.hideTutorial;
-    
-    // Retirer les listeners clavier
-    document.removeEventListener('keydown', handleTutorialKeyboard);
-  }
-  
-  // Gestion du clavier (Échap pour quitter)
-  function handleTutorialKeyboard(e) {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      cleanupTutorial();
-      toast('Tutoriel interrompu', 'info');
-    }
-  }
-  
-  // Fonction pour afficher une étape
-  function showStep(index) {
-    // Vérifier la fin du tutoriel
-    if (index >= steps.length) {
-      cleanupTutorial();
-      // Marquer comme vu SEULEMENT à la fin
-      localStorage.setItem('hasSeenTutorial', 'true');
-      toast('Tutoriel terminé ! Vous êtes prêt à utiliser l\'application.', 'success');
-      return;
-    }
-    
-    const step = steps[index];
-    const element = document.querySelector(step.element);
-    
-    // Sécuriser la progression si l'élément n'existe pas
-    if (!element) {
-      console.warn(`⚠️ Élément "${step.element}" introuvable, passage à l'étape suivante`);
-      currentStep++;
-      // Vérifier qu'il reste des étapes valides
-      if (currentStep < steps.length) {
-        showStep(currentStep);
-      } else {
-        cleanupTutorial();
-        toast('Tutoriel terminé (certaines étapes ont été sautées)', 'info');
-      }
-      return;
-    }
-    
-    // Nettoyer l'étape précédente
-    if (overlayElement) overlayElement.remove();
-    if (bubbleContainer) bubbleContainer.remove();
-    if (highlightedElement) {
-      highlightedElement.style.position = '';
-      highlightedElement.style.zIndex = '';
-      highlightedElement.style.boxShadow = '';
-      highlightedElement.style.borderRadius = '';
-    }
-    
-    // Scroller l'élément dans la vue
-    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    
-    // Attendre que le scroll soit terminé
-    setTimeout(() => {
-      // Créer l'overlay (z-index: 50)
-      overlayElement = document.createElement('div');
-      overlayElement.id = 'tutorialOverlay';
-      overlayElement.className = 'fixed inset-0 bg-black bg-opacity-70';
-      overlayElement.style.zIndex = '50';
-      overlayElement.setAttribute('role', 'dialog');
-      overlayElement.setAttribute('aria-modal', 'true');
-      overlayElement.setAttribute('aria-labelledby', 'tutorialTitle');
-      
-      // Mettre en avant l'élément ciblé (z-index: 60)
-      highlightedElement = element;
-      element.style.position = 'relative';
-      element.style.zIndex = '60';
-      element.style.boxShadow = '0 0 0 4px #3b82f6, 0 0 0 8px rgba(59, 130, 246, 0.3)';
-      element.style.borderRadius = '8px';
-      
-      // Créer un conteneur SÉPARÉ pour la bulle (z-index: 70)
-      bubbleContainer = document.createElement('div');
-      bubbleContainer.className = 'fixed';
-      bubbleContainer.style.zIndex = '70';
-      bubbleContainer.style.pointerEvents = 'none'; // Laisser passer les clics sauf sur la bulle
-      
-      // Créer la bulle pédagogique
-      const bubble = document.createElement('div');
-      bubble.className = 'bg-white rounded-lg p-4 shadow-2xl max-w-sm';
-      bubble.style.pointerEvents = 'auto'; // Réactiver les clics sur la bulle
-      bubble.setAttribute('role', 'alertdialog');
-      bubble.setAttribute('aria-live', 'polite');
-      
-      bubble.innerHTML = `
-        <h3 id="tutorialTitle" class="font-bold text-lg mb-2">${step.title}</h3>
-        <p class="mb-4">${step.text}</p>
-        <div class="flex justify-between items-center">
-          <span class="text-sm text-gray-500">${index + 1}/${steps.length}</span>
-          <div class="space-x-2">
-            <button id="tutorialSkip" class="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300 transition-colors">Passer</button>
-            <button id="tutorialNext" class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">${index === steps.length - 1 ? 'Terminer' : 'Suivant'}</button>
-          </div>
-        </div>
-      `;
-      
-      // Calculer la position de la bulle (positionnement adaptatif)
-      const rect = element.getBoundingClientRect();
-      const bubbleWidth = 384; // max-w-sm = 24rem = 384px
-      const bubbleHeight = 200; // Estimation
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-      
-      let top, left;
-      
-      // Gestion du débordement vertical
-      if (rect.bottom + bubbleHeight + 40 > viewportHeight) {
-        // Placer au-dessus si pas assez de place en dessous
-        top = Math.max(20, rect.top - bubbleHeight - 20);
-      } else {
-        // Placer en dessous
-        top = rect.bottom + 20;
-      }
-      
-      // Gestion du débordement horizontal (ancre dynamique)
-      if (rect.left + bubbleWidth + 20 > viewportWidth) {
-        // Ancrer à droite si pas assez de place à gauche
-        left = Math.max(20, viewportWidth - bubbleWidth - 20);
-      } else if (rect.left < 100) {
-        // Si l'élément est très à gauche, décaler la bulle à droite
-        left = Math.max(20, rect.right + 20);
-      } else {
-        // Position par défaut : légèrement à gauche de l'élément
-        left = Math.max(20, rect.left - 100);
-      }
-      
-      bubble.style.position = 'absolute';
-      bubble.style.top = top + 'px';
-      bubble.style.left = left + 'px';
-      
-      bubbleContainer.appendChild(bubble);
-      
-      // Ajouter à la page (ordre important pour le stacking)
-      document.body.appendChild(overlayElement);
-      document.body.appendChild(bubbleContainer);
-      
-      // Attacher les événements aux boutons
-      const skipBtn = document.getElementById('tutorialSkip');
-      const nextBtn = document.getElementById('tutorialNext');
-      
-      skipBtn.addEventListener('click', () => {
-        cleanupTutorial();
-        toast('Tutoriel interrompu', 'info');
-      });
-      
-      nextBtn.addEventListener('click', () => {
-        currentStep++;
-        showStep(currentStep);
-      });
-      
-      // Donner le focus au bouton "Suivant" pour l'accessibilité clavier
-      nextBtn.focus();
-      
-      // Ajouter le listener clavier
-      document.addEventListener('keydown', handleTutorialKeyboard);
-      
-    }, 500); // Attendre la fin du scroll
-  }
-  
-  // Créer les alias globaux (seront nettoyés à la fin)
-  window.nextTutorialStep = function() {
-    currentStep++;
-    showStep(currentStep);
-  };
-  
-  window.hideTutorial = function() {
-    cleanupTutorial();
-  };
-  
-  // Démarrer le tutoriel
-  showStep(0);
+  }, 1000);
+}
+
 }
 
 // 3. Actualisation intelligente (déjà présente mais toast amélioré)
@@ -6347,14 +6147,17 @@ function initializeEnhancements() {
   createContextualHelp();
   createNotificationSystem();
   window.addEventListener('beforeunload', saveUserPreferences);
-  if (!localStorage.getItem('hasSeenTutorial')) {
-    setTimeout(() => {
-      if (confirm('Première visite ? Voulez-vous voir le tutoriel interactif ?')) {
-        showTutorial();
-      }
-      localStorage.setItem('hasSeenTutorial', 'true');
-    }, 2000);
-  }
+
+  // ========== ANCIEN TUTORIEL DÉSACTIVÉ ==========
+  // Remplacé par OnboardingTour.autoStart() dans InterfaceV2_UIModules_Loader.html
+  // if (!localStorage.getItem('hasSeenTutorial')) {
+  //   setTimeout(() => {
+  //     if (confirm('Première visite ? Voulez-vous voir le tutoriel interactif ?')) {
+  //       showTutorial();
+  //     }
+  //     localStorage.setItem('hasSeenTutorial', 'true');
+  //   }, 2000);
+  // }
 }
 // ... existing code ...
 // À la fin du DOMContentLoaded, après setupEventListeners() et openStartupModal();
